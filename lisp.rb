@@ -64,6 +64,8 @@ def tokenise(t)
     Proc.new { |a, b| a/b }
   when "first"
     Proc.new { |a, *b| a }
+  when "last"
+    Proc.new { |a, *b| b }
   end
 end
 
