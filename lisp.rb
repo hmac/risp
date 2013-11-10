@@ -74,8 +74,16 @@ def tokenise(t)
     Proc.new { |a, b| a/b }
   when "first"
     Proc.new { |arr| arr.first }
+  when "last"
+    Proc.new { |arr| arr[-1] }
   when "rest"
-    Proc.new { |arr| b[0..b.length-1] }
+    Proc.new { |arr| arr[1..-1] }
+  when "cons"
+    Proc.new { |a, arr| [a] + arr }
+  when "list"
+    Proc.new { |*a| a }
+  when "nth"
+    Proc.new { |n, arr| arr[n] }
   end
 end
 
