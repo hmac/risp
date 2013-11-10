@@ -1,3 +1,9 @@
+# This is not really a proper lisp interpreter
+# Beyond lists, it has no concept of symbols
+# It has no support for macros
+# It has a very limited set of primitive functions
+# It's effectively useless
+
 # Lisp code is nested S-expressions
 # An S-expression is an opening bracket, a function name, 1 or more arguments and a closing bracket
 # Arguments can be literals, variables, functions, S-expressions or lists
@@ -84,6 +90,8 @@ def tokenise(t)
     Proc.new { |*a| a }
   when "nth"
     Proc.new { |n, arr| arr[n] }
+  when "append"
+    Proc.new { |a*| a.inject { |acc, e| acc + e } }
   end
 end
 
