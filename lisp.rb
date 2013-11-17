@@ -97,7 +97,6 @@ class Literal
   def value
     @value
   end
-  
 end
 
 class Node
@@ -105,9 +104,6 @@ class Node
     @parent = parent
     @value = value
     @children = []
-  end
-  def root?
-    @parent.nil?
   end
   def value
     @value
@@ -120,9 +116,6 @@ class Node
   end
   def [](index)
     @children ? @children[index] : nil
-  end
-  def length
-    @children ? @children.length : 0
   end
   def push(node)
     @children.push node
