@@ -24,60 +24,26 @@
 # We need a parser to read the program as text and covert the text to some sort of 
 # syntax tree
 
-# This class represents an S-expression
-# It has a function
-# and one or more arguments
-class Expr
-  def initialize(tokens)
-    # First token is (
-    # Last token is )
-    tokens = tokens[1..-2]
-    @func = tokenise(tokens[0])
-    @args = tokens.drop(1).map { |t| tokenise(t) }
-  end
-
-  def call(*args)
-    # A negative arity implies an optional number of arguments (i.e. a splat)
-    # -1 => 0+ arguments
-    # -2 => 1+ arguments
-    # etc.
-    n = @func.arity.abs - 1
-    if @func.arity == @args.count or (@func.arity < 0 and @args.count > n)
-      @args.map! { |a| a.is_a?(Expr) ? a.call : a }
-      @func.call *@args
-    else
-      unless args.nil? or args.empty?
-        @args += args.map { |t| tokenise(t) }
-        self.call
-      else
-        nil
-      end
-    end
-  end
-end
 
 def parse_expr(str)
-  _str = str_to_array(str)
-  while _str.length > 1
-    _str = parse(_str)
-  end
-  _str.first
+  arr = str_to_array(str)
+  node = parse arr
 end
 
 def tokenise(t)
-  return t if t.is_a? Expr or t.is_a? Array
+  return t if t.is_a? Array
   if t.to_i.to_s == t
-    return t.to_i
+    return Literal.new(t.to_i)
   end
   case t
   when "+"
-    Proc.new { |a, b| a+b }
+    Proc.new { |a, b| Literal.new(a.value+b.value) }
   when "-"
-    Proc.new { |a, b| a-b }
+    Proc.new { |a, b| Literal.new(a.value-b.value) }
   when "*"
-    Proc.new { |a, b| a*b }
+    Proc.new { |a, b| Literal.new(a.value*b.value) }
   when "/"
-    Proc.new { |a, b| a/b }
+    Proc.new { |a, b| Literal.new(a.value/b.value) }
   when "first"
     Proc.new { |arr| arr.first }
   when "last"
@@ -89,43 +55,87 @@ def tokenise(t)
   when "list"
     Proc.new { |*a| a }
   when "nth"
-    Proc.new { |n, arr| arr[n] }
+    Proc.new { |n, arr| arr[n.value] }
   when "append"
-    Proc.new { |a*| a.inject { |acc, e| acc + e } }
+    Proc.new { |*a| a.inject { |acc, e| acc + e } }
   end
-end
-
-def list(tokens)
-  # First token is '(
-  # Last token is )
-  tokens[1..-2].map { |e| tokenise e }
 end
 
 def str_to_array(str)
   str.gsub(/([()])/, ' \1 ')  # Expand brackets so all tokens are separated by spaces
-    .gsub("' (", "'(")        # Join ' ( together into one '( token
     .split " "                # Convert string to array of tokens
+    # .gsub("' (", "'(")        # Join ' ( together into one '( token
 end
 
 def parse(arr)
-  close = arr.index ")" # Find first closing bracket
-  # Find corresponding opening bracket
-  first_expr_bracket = arr[0..close].reverse.index("(")
-  first_list_bracket = arr[0..close].reverse.index("'(") || arr.length
-  if first_list_bracket < first_expr_bracket
-    # We've found a list
-    open = close - first_list_bracket
-    list_tokens = arr[open..close]
-    arr[0...open] + [list(list_tokens)] + arr[close+1..-1]
-  else
-    # We've found an expression
-    open = close - first_expr_bracket
-    expr_tokens = arr[open..close] # Get tokens inside these two brackets
-    arr[0...open] + [Expr.new(expr_tokens)] + arr[close+1..arr.length-1] # Convert tokens to an expression
+  root = Node.new(nil,nil)
+  cur_node = root
+  arr.each do |token|
+    if token == "("
+      cur_node.push Node.new(nil,cur_node)
+      cur_node = cur_node.children.last
+    else 
+      if token == ")"
+      cur_node = cur_node.parent
+      else
+        cur_node.push Node.new(tokenise(token), cur_node)
+      end
+    end
   end
+  root.children.first
 end
 
 # Convenience eval method
 def run(code)
   parse_expr(code).call
+end
+
+class Literal
+  def initialize(val)
+    @value = val
+  end
+  def value
+    @value
+  end
+  
+end
+
+class Node
+  def initialize(value, parent)
+    @parent = parent
+    @value = value
+    @children = []
+  end
+  def root?
+    @parent.nil?
+  end
+  def value
+    @value
+  end
+  def parent
+    @parent
+  end
+  def children
+    @children
+  end
+  def [](index)
+    @children ? @children[index] : nil
+  end
+  def length
+    @children ? @children.length : 0
+  end
+  def push(node)
+    @children.push node
+  end
+  def to_a
+    @children.empty? ? @value : @children.map { |c| c.to_a }
+  end
+  def call
+    return @value if @children.empty?
+    if @children[0].value.is_a? Proc
+      @children[0].value.call *@children[1..-1].map { |c| c.value || c.call }
+    else
+      @children.map { |c| c.value.nil? ? c.call : c.value }
+    end
+  end
 end
