@@ -30,7 +30,7 @@ def parse_expr(str)
   node = parse arr
 end
 
-def tokenise(t)
+def tokenise(t, node)
   return t if t.is_a? Array
   if t.to_i.to_s == t
     return Literal.new(t.to_i)
@@ -58,6 +58,11 @@ def tokenise(t)
     Proc.new { |n, arr| arr[n.value] }
   when "append"
     Proc.new { |*a| a.inject { |acc, e| acc + e } }
+  when "def"
+    # Hoist var to top level scope
+    Proc.new { |name, val| node.root.hoist(name.value, val) }
+  else
+    node.resolve(t) || Literal.new(t)
   end
 end
 
@@ -68,8 +73,7 @@ def str_to_array(str)
 end
 
 def parse(arr)
-  root = Node.new(nil,nil)
-  cur_node = root
+  cur_node = $root
   arr.each do |token|
     if token == "("
       cur_node.push Node.new(nil,cur_node)
@@ -78,11 +82,11 @@ def parse(arr)
       if token == ")"
       cur_node = cur_node.parent
       else
-        cur_node.push Node.new(tokenise(token), cur_node)
+        cur_node.push Node.new(tokenise(token, cur_node), cur_node)
       end
     end
   end
-  root.children.first
+  $root.children.last
 end
 
 # Convenience eval method
@@ -104,6 +108,10 @@ class Node
     @parent = parent
     @value = value
     @children = []
+    @context = {}
+  end
+  def root
+    @parent.nil? ? self : @parent.root
   end
   def value
     @value
@@ -120,6 +128,14 @@ class Node
   def push(node)
     @children.push node
   end
+  def resolve(name)
+    return @context[name] if @context[name]
+    return nil if @parent.nil?
+    return @parent.resolve(name)
+  end
+  def hoist(name, val)
+    @context[name] = val
+  end
   def to_a
     @children.empty? ? @value : @children.map { |c| c.to_a }
   end
@@ -132,3 +148,6 @@ class Node
     end
   end
 end
+
+# Create root node for execution context
+$root = Node.new(nil,nil)
