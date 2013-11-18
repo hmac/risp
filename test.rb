@@ -15,3 +15,4 @@ expect "(def a 5)", 5
 expect "(+ a 2)", 7
 
 puts "All tests passed."
+
