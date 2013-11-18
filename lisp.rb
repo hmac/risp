@@ -21,7 +21,7 @@
 # (first '(1 2 3 4)) => 1
 # (map (+ 5) '(1 2 3)) => (6 7 8)
 
-# We need a parser to read the program as text and covert the text to some sort of 
+# We need a parser to read the program as text and convert the text to some sort of 
 # syntax tree
 
 
