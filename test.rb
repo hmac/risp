@@ -1,4 +1,4 @@
-require "./lisp"
+require "./risp"
 
 def expect(code, val)
   res = run(code).value
