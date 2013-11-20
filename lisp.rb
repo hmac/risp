@@ -80,7 +80,7 @@ def parse(arr)
       cur_node = cur_node.children.last
     else 
       if token == ")"
-      cur_node = cur_node.parent
+        cur_node = cur_node.parent
       else
         cur_node.push Node.new(tokenise(token, cur_node), cur_node)
       end
