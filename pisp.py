@@ -18,6 +18,18 @@ def tokenise(t, node):
 		return lambda a,b: Literal(a.value+b.value)
 	elif t == "-":
 		return lambda a,b: Literal(a.value-b.value)
+	elif t == "*":
+		return lambda a,b: Literal(a.value*b.value)
+	elif t == "/":
+		return lambda a,b: Literal(a.value/b.value)
+	elif t == "first":
+		return lambda arr: arr[0]
+	elif t == "last":
+		return lambda arr: arr[-1]
+	elif t == "rest":
+		return lambda arr: arr[1:]
+	elif t == "def":
+		return lambda name,val: node.root().hoist(name.value, val)
 	else:
 		res = node.resolve(t)
 		if res:
