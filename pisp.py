@@ -101,11 +101,6 @@ class Node:
 		return self.parent.resolve(name)
 	def hoist(self, name, val):
 		self.context[name] = val
-	def to_a():
-		if len(self.children) == 0:
-			return self.value
-		else:
-			map(lambda c: c.to_a, self.children)
 	def call(self):
 		if len(self.children) == 0:
 			return self.value
