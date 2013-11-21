@@ -30,6 +30,17 @@ def tokenise(t, node):
 		return lambda arr: arr[1:]
 	elif t == "def":
 		return lambda name,val: node.root().hoist(name.value, val)
+	elif t == "let":
+		# The way S-expressions are currently evaluated
+		# (from the inside out) means that by the time this
+		# function is called, the variables it is meant to
+		# define have already been used (or attemped to be used)
+		# and so an error has probably already occurred as they will
+		# have been treated as strings.
+		# We'd have to somehow detect when we come across a 'let'
+		# function in the Node.call method so that we don't try to
+		# evaluate the contained expression before the variables have been set.
+		pass
 	else:
 		res = node.resolve(t)
 		if res:
