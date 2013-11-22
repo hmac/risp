@@ -1,3 +1,19 @@
+# Theoretically we should only need to implement a small set of primitive
+# functions and we can thereafter define all other functions in lisp code
+# in terms of the primitives.
+# This page: http://www.eecs.berkeley.edu/~bh/ssch27/appendix-funlist.html
+# lists the following functions as "Special forms" which I take to mean
+# "cannot be implemented in lisp":
+# and
+# begin
+# cond
+# define (def)
+# if
+# lambda
+# let
+# or
+# quote
+
 import re
 
 # Parses and executes the contents of the file given
@@ -51,6 +67,11 @@ def tokenise(t, node):
 		# So we have to treat let differently, and handle it during Node.call
 		# when the 2nd argument is yet to be evaluated.
 		return let
+	elif t == "quote":
+		# (quote x) returns x
+		# (quote a) => a
+		# (quote (a b c)) => (a b c)
+		return lambda a: Literal(a.val(), node)
 	else:
 		return Literal(t, node)
 
