@@ -1,8 +1,19 @@
 import re
 
+# Parses and executes the contents of the file given
+def load(file):
+	data = open(file, "r").read()
+	lines = filter(lambda l: l != '', data.split("\n"))
+	for l in lines:
+		res = run(l)
+		if res != None:
+			print(res.val())
+
+# Parses and executes the code string given
 def run(code):
 	node = parse_exp(code)
-	return node.call().value
+	res = node.call()
+	return res
 
 def parse_exp(str):
 	arr = str_to_array(str)
