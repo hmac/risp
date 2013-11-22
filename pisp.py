@@ -40,7 +40,7 @@ def tokenise(t, node):
 	elif t == "rest":
 		return lambda arr: arr[1:]
 	elif t == "def":
-		return lambda name,val: node.root().hoist(name.val(), val)
+		return lambda name,val: node.root().hoist(name.val(), val.val())
 	elif t == "let":
 		# The way S-expressions are currently evaluated
 		# (from the inside out) means that by the time this
@@ -128,6 +128,7 @@ class Node:
 		return self.parent.resolve(name)
 	def hoist(self, name, val):
 		self.context[name] = val
+		return Literal(val, None)
 	def call(self):
 		if len(self.children) == 0:
 			return self.value
