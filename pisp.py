@@ -118,9 +118,29 @@ def is_number(s):
 
 
 def str_to_array(str):
+	# Convert '... to (quote ...)
+	match = re.search("'\(", str)
+	while match != None:
+		start = match.start()
+		str = str[0:start-1] + insert_quote(str, start+1)
+		match = re.search("'\(", str)
+
 	str = re.sub("\(", " ( ", str)
 	str = re.sub("\)", " ) ", str)
 	return str.split()
+
+# Turns '(1 2 3) into (quote (1 2 3))
+def insert_quote(text, start):
+	counter = 1
+	end = start
+	while counter > 0:
+		end += 1
+		c = text[end]
+		if c == "(":
+			counter += 1
+		elif c == ")":
+			counter -= 1
+	return " (quote "+text[start:end]+")"+text[end:]
 
 def parse(arr):
 	global root
