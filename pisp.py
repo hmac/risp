@@ -14,6 +14,8 @@
 # or
 # quote
 
+# I'm also using this: http://languagelog.ldc.upenn.edu/myl/ldc/llog/jmc.pdf
+
 import re
 
 # Parses and executes the contents of the file given
@@ -50,11 +52,11 @@ def tokenise(t, node):
 	elif t == "/":
 		return lambda a,b: Literal(a.val()/b.val(), node)
 	elif t == "first":
-		return lambda arr: arr[0]
+		return lambda arr: arr.val()[0]
 	elif t == "last":
-		return lambda arr: arr[-1]
+		return lambda arr: arr.val()[-1]
 	elif t == "rest":
-		return lambda arr: arr[1:]
+		return lambda arr: arr.val()[1:]
 	elif t == "def":
 		return lambda name,val: node.root().hoist(name.val(), val.val())
 	elif t == "let":
@@ -71,12 +73,41 @@ def tokenise(t, node):
 		# (quote x) returns x
 		# (quote a) => a
 		# (quote (a b c)) => (a b c)
-		return lambda a: Literal(a.val(), node)
+		# return lambda a: Literal(a.val(), node)
+		return quote
+	elif t == "atom":
+		# (atom x) returns the atom True is the value of x is an atom or the empty list
+		# Otherwise it returns ()
+		# (atom (quote a)) => True
+		# (atom (quote (a b c))) => ()
+		# (atom (quote ())) => True
+		# Once again, this can't be done with a simple lambda
+		# We need to examine the node for the 1st argument and ensure that it is
+		# 	a) an atom (i.e. not a list)
+		# 	or
+		# 	b) an empty list
+		return atom
 	else:
 		return Literal(t, node)
 
 def let(node,binding):
 	node.hoist(binding[0].val(), binding[1].val())
+
+def quote(arg):
+	# If arg is list, do not call it. Extract elements and return list.
+	if arg.children != []:
+		elems = map(lambda c: c.value if c.value else c.call(),arg.children)
+		return Literal(elems, None)
+	else:
+		return arg.value
+
+def atom(arg):
+	# If arg is an array with 1+ elems, return []
+	# Else return True
+	if type(arg.val()) == list and len(arg.val()) > 0:
+		return Literal([], None)
+	else:
+		return Literal(True, None)
 
 def is_number(s):
   try:
@@ -111,6 +142,8 @@ class Literal:
 		self.node = node
 		self.resolved = False
 	def val(self):
+		if type(self.value) == list or type(self.value) == bool:
+			return self.value
 		if self.resolved:
 			return self.value
 		if is_number(self.value):
@@ -156,11 +189,21 @@ class Node:
 		if type(self.children[0].value) == type(lambda: None):
 			# Special case for 'let'
 			if self.children[0].value == let:
-				let(self, self.children[1].call())
+				bindings = map(lambda c: c.value if c.value else c.call(), self.children[1].children)
+				let(self, bindings)
 				return self.children[2].call()
+			# Special case for 'quote'
+			if self.children[0].value == quote:
+				return quote(self.children[1])
+			# Special case for 'atom'
+			if self.children[0].value == atom:
+				return atom(self.children[1].call())
 			return self.children[0].value(*map(lambda c: c.value if c.value else c.call(),self.children[1:]))
 		else:
-			return map(lambda c: c.value if c.value else c.call(), self.children)
+			# According to the Scheme spec, all unquoted lists must start with a function
+			raise Exception(str(self.children[0].value)+" is not a function")
+			return None
+			# return map(lambda c: c.value if c.value else c.call(), self.children)
 
 root = Node(None,None)
 		

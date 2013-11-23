@@ -7,8 +7,8 @@ def expect(code, val):
   raise Exception(str(code)+" returned "+str(res.val())+", expected "+str(val))
 
 expect("(+ 1 1)", 2)
-expect("(first (1 2 3))", 1)
-expect("(+ 1 (first (1 2)))", 2)
+expect("(first (quote (1 2 3)))", 1)
+expect("(+ 1 (first (quote (1 2))))", 2)
 
 # pisp doesn't support nth yet
 # expect("(nth 3 (cons 2 (list 1 2 3 4)))", 3)
@@ -24,6 +24,7 @@ expect("(let (b 4) (+ 1 b))", 5)
 # Quoting
 expect("(quote b)", "b")
 
-
+# Atom
+expect("(atom (quote a))", True)
 
 print "All tests passed."
