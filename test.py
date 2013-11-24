@@ -25,6 +25,14 @@ expect("(let (b 4) (+ 1 b))", 5)
 expect("(quote b)", "b")
 
 # Atom
-expect("(atom (quote a))", True)
+expect("(atom (quote b))", True)
+expect("(atom '(1 2 3))", [])
+
+# Eq
+expect("(eq 'b 'b)", True)
+expect("(eq 'b 'c)", [])
+
+# Cons
+# expect("(cons 'a '(b c))", ["a", "b", "c"])
 
 print "All tests passed."

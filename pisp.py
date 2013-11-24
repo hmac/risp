@@ -15,6 +15,13 @@
 # quote
 
 # I'm also using this: http://languagelog.ldc.upenn.edu/myl/ldc/llog/jmc.pdf
+# Which defines the following primitives:
+# quote
+# atom
+# eq
+# car (first)
+# cdr (rest)
+# cons
 
 import re
 
@@ -57,8 +64,12 @@ def tokenise(t, node):
 		return lambda arr: arr.val()[-1]
 	elif t == "rest":
 		return lambda arr: arr.val()[1:]
+	elif t == "cons":
+		# (const 'a '(b c)) => (a b c)
+		return lambda a,arr: Literal([a]+arr.val(), node)
 	elif t == "def":
-		return lambda name,val: node.root().hoist(name.val(), val.val())
+		# return defn
+		return lambda name,val: node.root().hoist(name.value, val.val())
 	elif t == "let":
 		# The way S-expressions are currently evaluated
 		# (from the inside out) means that by the time this
@@ -87,18 +98,30 @@ def tokenise(t, node):
 		# 	or
 		# 	b) an empty list
 		return atom
+	elif t == "eq":
+		# (eq 'a 'a) => True
+		# (eq 'a 'b) => ()
+		return lambda a,b: Literal(True, None) if a.val() == b.val() else Literal([], None)
 	else:
 		return Literal(t, node)
 
 def let(node,binding):
-	node.hoist(binding[0].val(), binding[1].val())
+	node.hoist(binding[0].value, binding[1].val())
 
 def quote(arg):
 	# If arg is list, do not call it. Extract elements and return list.
 	if arg.children != []:
-		elems = map(lambda c: c.value if c.value else c.call(),arg.children)
+		elems = map(lambda c: c.value if c.value else quote(c),arg.children)
+		def resolve(list):
+			for e in list:
+				if type(e) == type(Literal(None, None)):
+					e.resolved = True
+				elif type(e) != type(lambda: None):
+					resolve(e)
+		resolve(elems)
 		return Literal(elems, None)
 	else:
+		arg.value.resolved = True
 		return arg.value
 
 def atom(arg):
@@ -108,6 +131,9 @@ def atom(arg):
 		return Literal([], None)
 	else:
 		return Literal(True, None)
+
+def defn(name, val, node):
+	node.root().hoist(name.value.value, val.value.val())
 
 def is_number(s):
   try:
@@ -122,8 +148,17 @@ def str_to_array(str):
 	match = re.search("'\(", str)
 	while match != None:
 		start = match.start()
-		str = str[0:start-1] + insert_quote(str, start+1)
+		_start = start-1 if start > 0 else 0
+		str = str[0:_start] + insert_quote(str, start+1)
 		match = re.search("'\(", str)
+
+	# Convert 'a to (quote a)
+	match = re.search("'\w+?", str)
+	while match != None:
+		s = match.start()
+		e = match.end()
+		str = str[0:s] + "(quote " + str[s+1:e] + ")" + str[e:]
+		match = re.search("'\w+?", str)
 
 	str = re.sub("\(", " ( ", str)
 	str = re.sub("\)", " ) ", str)
@@ -157,6 +192,8 @@ def parse(arr):
 
 class Literal:
 	"""its a literal"""
+	def __repr__(self):
+		return "<"+str(self.val())+">"
 	def __init__(self, value, node):
 		self.value = value
 		self.node = node
@@ -177,6 +214,7 @@ class Literal:
 			return self.value
 		else:
 			# Should probably raise an error here
+			raise Exception("Unbound symbol: "+self.value)
 			return self.value
 
 class Node:
@@ -218,6 +256,9 @@ class Node:
 			# Special case for 'atom'
 			if self.children[0].value == atom:
 				return atom(self.children[1].call())
+			# Special case for 'def'
+			# if self.children[0].value == defn:
+			# 	return defn(self.children[1], self.children[2], self)
 			return self.children[0].value(*map(lambda c: c.value if c.value else c.call(),self.children[1:]))
 		else:
 			# According to the Scheme spec, all unquoted lists must start with a function
