@@ -49,27 +49,27 @@ def tokenise(t, node):
 	if type(t) == list:
 		return t
 	if is_number(t):
-		return Literal(int(t), node)
+		return float(t)
 	if t == "+":
-		return lambda a,b: Literal(a.val()+b.val(), node)
+		return lambda a,b: a+b
 	elif t == "-":
-		return lambda a,b: Literal(a.val()-b.val(), node)
+		return lambda a,b: a-b
 	elif t == "*":
-		return lambda a,b: Literal(a.val()*b.val(), node)
+		return lambda a,b: a*b
 	elif t == "/":
-		return lambda a,b: Literal(a.val()/b.val(), node)
+		return lambda a,b: a/b
 	elif t == "first":
-		return lambda arr: arr.val()[0]
+		return lambda arr: arr[0]
 	elif t == "last":
-		return lambda arr: arr.val()[-1]
+		return lambda arr: arr[-1]
 	elif t == "rest":
-		return lambda arr: arr.val()[1:]
+		return lambda arr: arr[1:]
 	elif t == "cons":
 		# (const 'a '(b c)) => (a b c)
-		return lambda a,arr: Literal([a]+arr.val(), node)
+		return lambda a,arr: [a]+arr
 	elif t == "def":
-		# return defn
-		return lambda name,val: node.root().hoist(name.value, val.val())
+		return defn
+		# return lambda name,val: node.root().hoist(name.value, val.val())
 	elif t == "let":
 		# The way S-expressions are currently evaluated
 		# (from the inside out) means that by the time this
@@ -84,7 +84,6 @@ def tokenise(t, node):
 		# (quote x) returns x
 		# (quote a) => a
 		# (quote (a b c)) => (a b c)
-		# return lambda a: Literal(a.val(), node)
 		return quote
 	elif t == "atom":
 		# (atom x) returns the atom True is the value of x is an atom or the empty list
@@ -101,39 +100,42 @@ def tokenise(t, node):
 	elif t == "eq":
 		# (eq 'a 'a) => True
 		# (eq 'a 'b) => ()
-		return lambda a,b: Literal(True, None) if a.val() == b.val() else Literal([], None)
+		return lambda a,b: True if a == b else []
 	else:
-		return Literal(t, node)
+		return Symbol(t, node)
 
 def let(node,binding):
-	node.hoist(binding[0].value, binding[1].val())
+	node.hoist(binding[0].value.value, binding[1].call())
 
 def quote(arg):
-	# If arg is list, do not call it. Extract elements and return list.
+	# If arg node is list, do not call it. Extract elements and return list.
 	if arg.children != []:
-		elems = map(lambda c: c.value if c.value else quote(c),arg.children)
+		elems = map(lambda c: c.value if c.value else quote(c), arg.children)
 		def resolve(list):
 			for e in list:
-				if type(e) == type(Literal(None, None)):
-					e.resolved = True
-				elif type(e) != type(lambda: None):
+				if type(e) == type(Symbol(None, None)):
+					e.static = True
+				elif type(e) != type(lambda: None) and not is_number(e):
 					resolve(e)
-		resolve(elems)
-		return Literal(elems, None)
+			return list
+		elems = resolve(elems)
+		return elems
 	else:
-		arg.value.resolved = True
-		return arg.value
+		if type(arg.value) is type(Symbol(None, None)):
+			arg.value.static = True
+	return arg.value
 
 def atom(arg):
 	# If arg is an array with 1+ elems, return []
 	# Else return True
-	if type(arg.val()) == list and len(arg.val()) > 0:
-		return Literal([], None)
+	if type(arg) is list and len(arg) > 0:
+		return []
 	else:
-		return Literal(True, None)
+		return True
 
-def defn(name, val, node):
-	node.root().hoist(name.value.value, val.value.val())
+def defn(name_node, val_node, node):
+	# name_node must be a Symbol
+	node.root().hoist(name_node.value.value, val_node.call())
 
 def is_number(s):
   try:
@@ -142,6 +144,14 @@ def is_number(s):
   except ValueError:
     return False
 
+def ev(arg):
+	"""evaluate the argument given. Int -> Int, Symbol -> (value contained) etc"""
+	if type(arg) is int or type(arg) is float:
+		return arg
+	elif arg.__class__ is Symbol:
+		return arg.val()
+	elif arg.__class__ is Node:
+		return arg.call()
 
 def str_to_array(str):
 	# Convert '... to (quote ...)
@@ -190,31 +200,20 @@ def parse(arr):
 			cur_node.push(Node(tokenise(token, cur_node), cur_node))
 	return root.children[-1]
 
-class Literal:
-	"""its a literal"""
-	def __repr__(self):
-		return "<"+str(self.val())+">"
+class Symbol:
+	"""represents symbols, like a, b, etc"""
 	def __init__(self, value, node):
 		self.value = value
 		self.node = node
-		self.resolved = False
+		self.static = False # if true, will not attempt to resolve itself.
+	def __repr__(self):
+		return "<"+str(self.val())+">"
 	def val(self):
-		if type(self.value) == list or type(self.value) == bool:
+		if self.static:
 			return self.value
-		if self.resolved:
-			return self.value
-		if is_number(self.value):
-			self.resolved = True
-			self.value = float(self.value)
-			return self.value
-		res = self.node.resolve(self.value)
-		if res:
-			self.resolved = True
-			self.value = res
-			return self.value
+		if self.node:
+			return self.node.resolve(self.value)
 		else:
-			# Should probably raise an error here
-			raise Exception("Unbound symbol: "+self.value)
 			return self.value
 
 class Node:
@@ -240,15 +239,15 @@ class Node:
 		return self.parent.resolve(name)
 	def hoist(self, name, val):
 		self.context[name] = val
-		return Literal(val, None)
 	def call(self):
 		if len(self.children) == 0:
 			return self.value
 		if type(self.children[0].value) == type(lambda: None):
 			# Special case for 'let'
 			if self.children[0].value == let:
-				bindings = map(lambda c: c.value if c.value else c.call(), self.children[1].children)
-				let(self, bindings)
+				# bindings = map(lambda c: ev(c.value) if c.value else c.call(), self.children[1].children)
+				binding = self.children[1].children
+				let(self, binding)
 				return self.children[2].call()
 			# Special case for 'quote'
 			if self.children[0].value == quote:
@@ -257,9 +256,10 @@ class Node:
 			if self.children[0].value == atom:
 				return atom(self.children[1].call())
 			# Special case for 'def'
-			# if self.children[0].value == defn:
-			# 	return defn(self.children[1], self.children[2], self)
-			return self.children[0].value(*map(lambda c: c.value if c.value else c.call(),self.children[1:]))
+			if self.children[0].value == defn:
+				defn(self.children[1], self.children[2], self)
+				return None
+			return self.children[0].value(*map(lambda c: ev(c.value) if c.value else c.call(),self.children[1:]))
 		else:
 			# According to the Scheme spec, all unquoted lists must start with a function
 			raise Exception(str(self.children[0].value)+" is not a function")
