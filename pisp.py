@@ -25,6 +25,27 @@
 
 import re
 
+# Format result
+# <a> => a
+# 1.0 => 1.0
+# [1, 2, 3] => (1 2 3)
+# [<a>, <b>, <c>] => (a b c)
+def format(res):
+	if isinstance(res, int) or isinstance(res, float):
+		return res
+	if isinstance(res, Symbol):
+		return res.val()
+	if isinstance(res, list):
+		return reduce(lambda acc,e: acc+str(e)+" ", map(format, res), "(")+")"
+
+# Convert static symbols to strings
+def conv_sym(arg):
+	if isinstance(arg, Symbol) and arg.static is True:
+		return arg.val()
+	if isinstance(arg, list):
+		return map(conv_sym, arg)
+	return arg
+
 # Parses and executes the contents of the file given
 def load(file):
 	data = open(file, "r").read()
@@ -37,6 +58,7 @@ def load(file):
 def run(code):
 	node = parse_exp(code)
 	res = node.call()
+	res = conv_sym(res)
 	return res
 
 def parse_exp(str):
@@ -120,7 +142,7 @@ def quote(arg):
 		elems = resolve(elems)
 		return elems
 	else:
-		if type(arg.value) is type(Symbol(None, None)):
+		if isinstance(arg.value, Symbol):
 			arg.value.static = True
 	return arg.value
 
