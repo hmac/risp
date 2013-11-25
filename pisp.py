@@ -22,7 +22,7 @@ def load(file):
 	lines = filter(lambda l: l != '', data.split("\n"))
 	for l in lines:
 		res = run(l)
-		if res != None:
+		if res:
 			print(res.val())
 
 # Parses and executes the code string given
