@@ -31,8 +31,7 @@ def load(file):
 	lines = filter(lambda l: l != '', data.split("\n"))
 	for l in lines:
 		res = run(l)
-		if res != None:
-			print(res.val())
+		print res
 
 # Parses and executes the code string given
 def run(code):
