@@ -311,6 +311,7 @@ class Node:
 			# Special case for 'cond'
 			if func == cond:
 				return cond(self.children[1:])
+			# Special case for 'lambda'
 			if func == make_lambda:
 				params = quote(self.children[1])
 				expr = self.children[2]
