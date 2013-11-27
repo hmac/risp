@@ -37,4 +37,10 @@ expect("(eq 'b 'c)", [])
 # Cons
 expect("(cons 'a '(b c))", ["a", "b", "c"])
 
+# Cond
+expect("(cond ((eq 'a 'b) 1) ((atom 'a) 2))", 2)
+
+# Lambda
+expect("((lambda (x y) (+ x y)) 1 2)", 3)
+
 print "All tests passed."

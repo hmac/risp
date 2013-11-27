@@ -122,6 +122,12 @@ def tokenise(t, node):
 		# (eq 'a 'a) => True
 		# (eq 'a 'b) => ()
 		return lambda a,b: True if a == b else []
+	elif t == "cond":
+		# (cond ((eq 'b 'b) 'first)
+		#   		((atom 'a) 'second))
+		return cond
+	elif t == "lambda":
+		return make_lambda
 	else:
 		return Symbol(t, node)
 
@@ -157,6 +163,22 @@ def atom(arg):
 def defn(name_node, val_node, node):
 	# name_node must be a Symbol
 	node.root().hoist(name_node.value.value, val_node.call())
+
+def cond(args):
+	conditions = map(lambda c: c.children[0], args)
+	expressions = map(lambda c: c.children[1], args)
+	first_true_index = next(conditions.index(node) for node in conditions if node.call() == True)
+	exp = expressions[first_true_index]
+	if exp:
+		return exp.call()
+	else:
+		return None
+
+def make_lambda(args, expr, node):
+	def function(*_args):
+		[node.hoist(pair[0].value, pair[1]) for pair in zip(args, _args)]
+		return expr.call()
+	return function
 
 def is_number(s):
   try:
@@ -263,27 +285,40 @@ class Node:
 	def call(self):
 		if len(self.children) == 0:
 			return self.value
-		if type(self.children[0].value) == type(lambda: None):
+		func = self.children[0].call()
+		# If 1st elem is a variable, it should represent a function, so extract it
+		if isinstance(func, Symbol):
+			val = func.val()
+			if not isinstance(val, type(lambda: None)):
+				raise Exception(str(val)+" is not a function")
+			func = val
+		if type(func) == type(lambda: None):
 			# Special case for 'let'
-			if self.children[0].value == let:
-				# bindings = map(lambda c: ev(c.value) if c.value else c.call(), self.children[1].children)
+			if func == let:
 				binding = self.children[1].children
 				let(self, binding)
 				return self.children[2].call()
 			# Special case for 'quote'
-			if self.children[0].value == quote:
+			if func == quote:
 				return quote(self.children[1])
 			# Special case for 'atom'
-			if self.children[0].value == atom:
+			if func == atom:
 				return atom(self.children[1].call())
 			# Special case for 'def'
-			if self.children[0].value == defn:
+			if func == defn:
 				defn(self.children[1], self.children[2], self)
 				return None
-			return self.children[0].value(*map(lambda c: ev(c.value) if c.value else c.call(),self.children[1:]))
+			# Special case for 'cond'
+			if func == cond:
+				return cond(self.children[1:])
+			if func == make_lambda:
+				params = quote(self.children[1])
+				expr = self.children[2]
+				return make_lambda(params, expr, self)
+			return func(*map(lambda c: ev(c.value) if c.value else c.call(),self.children[1:]))
 		else:
 			# According to the Scheme spec, all unquoted lists must start with a function
-			raise Exception(str(self.children[0].value)+" is not a function")
+			raise Exception(str(func)+" is not a function")
 			return None
 			# return map(lambda c: c.value if c.value else c.call(), self.children)
 
